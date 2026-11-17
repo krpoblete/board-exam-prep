@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\AttemptAnswerFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class AttemptAnswer extends Model
+{
+    /** @use HasFactory<AttemptAnswerFactory> */
+    use HasFactory;
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'attempt_id',
+        'question_id',
+        'choice_id',
+        'is_correct',
+        'answered_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_correct' => 'boolean',
+            'answered_at' => 'datetime',
+        ];
+    }
+
+    /** @return BelongsTo<Attempt, $this> */
+    public function attempt(): BelongsTo
+    {
+        return $this->belongsTo(Attempt::class);
+    }
+
+    /** @return BelongsTo<Question, $this> */
+    public function question(): BelongsTo
+    {
+        return $this->belongsTo(Question::class);
+    }
+
+    /** @return BelongsTo<Choice, $this> */
+    public function choice(): BelongsTo
+    {
+        return $this->belongsTo(Choice::class);
+    }
+}
