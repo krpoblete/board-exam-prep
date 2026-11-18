@@ -73,4 +73,9 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     {
         return $this->hasMany(Question::class, 'created_by');
     }
+
+    public function isStaff(): bool
+    {
+        return $this->hasRole(Role::Admin, Role::Instructor);
+    }
 }

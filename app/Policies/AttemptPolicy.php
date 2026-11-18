@@ -1,0 +1,69 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\Attempt;
+use App\Models\User;
+
+class AttemptPolicy
+{
+    /**
+     * Determine whether the user can view any models.
+     */
+    public function viewAny(User $user): bool
+    {
+        // controllers scope to own attempts
+        return true;
+    }
+
+    /**
+     * Determine whether the user can view the model.
+     */
+    public function view(User $user, Attempt $attempt): bool
+    {
+        return $user->isAdmin() || $attempt->user_id === $user->id;
+    }
+
+    /**
+     * Determine whether the user can create models.
+     */
+    public function create(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can update the model.
+     */
+    // Saving answers or submitting: owner only, while the attempt is still open.
+    public function update(User $user, Attempt $attempt): bool
+    {
+        return $attempt->user_id === $user->id
+            && ! $attempt->isSubmitted()
+            && ! $attempt->isExpired();
+    }
+
+    /**
+     * Determine whether the user can delete the model.
+     */
+    public function delete(User $user, Attempt $attempt): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can restore the model.
+     */
+    public function restore(User $user, Attempt $attempt): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
+    public function forceDelete(User $user, Attempt $attempt): bool
+    {
+        return false;
+    }
+}
