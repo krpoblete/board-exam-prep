@@ -74,4 +74,10 @@ class Question extends Model
     {
         return $this->exams()->exists() || $this->attemptAnswers()->exists();
     }
+
+    /** @return BelongsToMany<Tag, $this> */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class);
+    }
 }
