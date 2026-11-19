@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Difficulty;
 use App\Enums\QuestionStatus;
 use Database\Factories\QuestionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,7 +23,6 @@ class Question extends Model
         'topic_id',
         'body',
         'explanation',
-        'difficulty',
         'status',
         'created_by',
     ];
@@ -30,6 +30,7 @@ class Question extends Model
     protected function casts(): array
     {
         return [
+            'difficulty' => Difficulty::class,
             'status' => QuestionStatus::class,
         ];
     }
