@@ -42,7 +42,11 @@ class QuestionPolicy
 
     public function publish(User $user, Question $question): bool
     {
-        // publish and unpublish
+        return $user->isStaff();
+    }
+
+    public function unpublish(User $user, Question $question): bool
+    {
         return $user->isStaff();
     }
 
@@ -52,7 +56,9 @@ class QuestionPolicy
     // Even admins can't delete a question that has history.
     public function delete(User $user, Question $question): bool
     {
-        return $user->isStaff() && ! $question->isPublished() && ! $question->isUsed();
+        return $user->isStaff()
+            && ! $question->isPublished()
+            && ! $question->isUsed();
     }
 
     /**

@@ -23,6 +23,7 @@ class Question extends Model
         'topic_id',
         'body',
         'explanation',
+        'difficulty',
         'status',
         'created_by',
     ];
@@ -71,9 +72,14 @@ class Question extends Model
         return $this->status === QuestionStatus::Published;
     }
 
+    public function hasAttempts(): bool
+    {
+        return $this->attemptAnswers()->exists();
+    }
+
     public function isUsed(): bool
     {
-        return $this->exams()->exists() || $this->attemptAnswers()->exists();
+        return $this->exams()->exists() || $this->hasAttempts();
     }
 
     /** @return BelongsToMany<Tag, $this> */

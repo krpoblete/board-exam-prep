@@ -2,23 +2,17 @@
 
 namespace App\Policies;
 
-use App\Enums\Role;
 use App\Models\Topic;
 use App\Models\User;
 
 class TopicPolicy
 {
-    private function manages(User $user): bool
-    {
-        return in_array($user->role, [Role::Instructor, Role::Admin], true);
-    }
-
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $this->manages($user);
+        return $user->isStaff();
     }
 
     /**
@@ -34,7 +28,7 @@ class TopicPolicy
      */
     public function create(User $user): bool
     {
-        return $this->manages($user);
+        return $user->isStaff();
     }
 
     /**
@@ -42,7 +36,7 @@ class TopicPolicy
      */
     public function update(User $user, Topic $topic): bool
     {
-        return $this->manages($user);
+        return $user->isStaff();
     }
 
     /**
@@ -50,7 +44,7 @@ class TopicPolicy
      */
     public function delete(User $user, Topic $topic): bool
     {
-        return $this->manages($user) && ! $topic->questions()->exists();
+        return $user->isStaff() && ! $topic->questions()->exists();
     }
 
     /**

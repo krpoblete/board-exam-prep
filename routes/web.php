@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\TopicController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,5 +17,10 @@ Route::resource('topics', TopicController::class)
         'update',
         'destroy',
     ]);
+
+Route::resource('questions', QuestionController::class)
+    ->except(['show']);
+Route::post('questions/{question}/publish', [QuestionController::class, 'publish'])->name('questions.publish');
+Route::post('questions/{question}/unpublish', [QuestionController::class, 'unpublish'])->name('questions.unpublish');
 
 require __DIR__.'/settings.php';
