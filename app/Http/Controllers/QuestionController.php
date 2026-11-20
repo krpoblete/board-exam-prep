@@ -6,6 +6,7 @@ use App\Actions\SaveQuestion;
 use App\Enums\QuestionStatus;
 use App\Http\Requests\StoreQuestionRequest;
 use App\Http\Requests\UpdateQuestionRequest;
+use App\Models\Choice;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Tag;
@@ -64,15 +65,9 @@ class QuestionController extends Controller
     {
         Gate::authorize('create', Question::class);
 
-        return Inertia::render('questions/create', [
-            'subjects' => Subject::with('topics:id,subject_id,name')
-                ->get(),
-            'tags' => Tag::orderBy('name')
-                ->get([
-                    'id',
-                    'name',
-                    'slug',
-                ]),
+        return Inertia::render('questions/form', [
+            'question' => null,
+            ...$this->formOptions(),
         ]);
     }
 
@@ -93,21 +88,62 @@ class QuestionController extends Controller
     {
         Gate::authorize('update', $question);
 
-        return Inertia::render('questions/edit', [
-            'question' => $question->load([
-                'topic.subject',
-                'tags',
-                'choices',
-            ]),
+        $question->load([
+            'topic',
+            'choices',
+            'tags',
+        ]);
+
+        return Inertia::render('questions/form', [
+            'question' => [
+                'id' => $question->id,
+                'subject_id' => $question
+                    ->topic
+                    ->subject_id,
+                'topic_id' => $question
+                    ->topic_id,
+                'body' => $question
+                    ->body,
+                'explanation' => $question
+                    ->explanation,
+                'difficulty' => $question
+                    ->difficulty
+                    ->value,
+                'status' => $question
+                    ->status
+                    ->value,
+                'locked' => $question
+                    ->hasAttempts(),
+                'tags' => $question
+                    ->tags
+                    ->pluck('name')
+                    ->values(),
+                'choices' => $question
+                    ->choices
+                    ->map(fn (Choice $c): array => [
+                        'id' => $c->id,
+                        'body' => $c->body,
+                        'is_correct' => $c->is_correct,
+                    ])
+                    ->values(),
+            ],
+            ...$this->formOptions(),
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function formOptions(): array
+    {
+        return [
             'subjects' => Subject::with('topics:id,subject_id,name')
-                ->get(),
-            'tags' => Tag::orderBy('name')
+                ->orderBy('name')
                 ->get([
                     'id',
                     'name',
-                    'slug',
                 ]),
-        ]);
+            'tagNames' => Tag::orderBy('name')
+                ->pluck('name'),
+        ];
     }
 
     /**

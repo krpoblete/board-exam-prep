@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property QuestionStatus $status
+ * @property Difficulty $difficulty
  */
 class Question extends Model
 {
