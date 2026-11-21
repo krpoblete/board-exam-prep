@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import type {
     Paginated,
     QuestionFilters,
@@ -6,7 +7,25 @@ import type {
     SubjectOption,
     TagOption,
 } from '@/types/question';
-import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import questionRoutes from '@/routes/questions';
 
 interface Props {
     questions: Paginated<QuestionRow>;
@@ -15,7 +34,41 @@ interface Props {
     tags: TagOption[];
 }
 
-const field = 'rounded-md border border-input bg-background px-3 py-2 text-sm';
+const ALL = 'all';
+
+function FilterSelect({
+    value,
+    onChange,
+    placeholder,
+    options,
+}: {
+    value: string | undefined;
+    onChange: (value: string) => void;
+    placeholder: string;
+    options: {
+        value: string;
+        label: string;
+    }[];
+}) {
+    return (
+        <Select
+            value={value || ALL}
+            onValueChange={(v) => onChange(v === ALL ? '' : v)}
+        >
+            <SelectTrigger className="w-44">
+                <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value={ALL}>{placeholder}</SelectItem>
+                {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
 
 export default function QuestionsIndex({
     questions,
@@ -31,7 +84,7 @@ export default function QuestionsIndex({
                 ([, value]) => value !== undefined && value !== '',
             ),
         );
-        router.get('/questions', query, {
+        router.get(questionRoutes.index().url, query, {
             preserveState: true,
             replace: true,
         });
@@ -49,9 +102,17 @@ export default function QuestionsIndex({
           [])
         : subjects.flatMap((s) => s.topics);
 
-    function post(url: string) {
+    function changeStatus(
+        question: QuestionRow,
+        action: 'publish' | 'unpublish',
+    ) {
+        const route =
+            action === 'publish'
+                ? questionRoutes.publish
+                : questionRoutes.unpublish;
+
         router.post(
-            url,
+            route(question.id).url,
             {},
             {
                 preserveScroll: true,
@@ -61,7 +122,7 @@ export default function QuestionsIndex({
 
     function remove(question: QuestionRow) {
         if (confirm('Delete this draft question? This cannot be undone.')) {
-            router.delete(`/questions/${question.id}`, {
+            router.delete(questionRoutes.destroy(question.id).url, {
                 preserveScroll: true,
             });
         }
@@ -75,12 +136,9 @@ export default function QuestionsIndex({
                     <h1 className="text-xl font-semibold">
                         Question bank ({questions.total})
                     </h1>
-                    <Link
-                        href="/questions/create"
-                        className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
-                    >
-                        New question
-                    </Link>
+                    <Button asChild>
+                        <Link href={questionRoutes.create()}>New question</Link>
+                    </Button>
                 </div>
 
                 <form
@@ -90,168 +148,212 @@ export default function QuestionsIndex({
                         update({});
                     }}
                 >
-                    <input
-                        className={field}
+                    <Input
+                        className="w-56"
                         placeholder="Search text..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                     />
-                    <select
-                        className={field}
-                        value={filters.subject_id ?? ''}
-                        onChange={(e) =>
-                            update({ subject_id: e.target.value, topic_id: '' })
+                    <FilterSelect
+                        value={filters.subject_id}
+                        placeholder="All subjects"
+                        options={subjects.map((s) => ({
+                            value: String(s.id),
+                            label: s.name,
+                        }))}
+                        onChange={(v) =>
+                            update({ subject_id: v, topic_id: '' })
                         }
-                    >
-                        <option value="">All subjects</option>
-                        {subjects.map((s) => (
-                            <option key={s.id} value={s.id}>
-                                {s.name}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        className={field}
-                        value={filters.topic_id ?? ''}
-                        onChange={(e) => update({ topic_id: e.target.value })}
-                    >
-                        <option value="">All topics</option>
-                        {topics.map((t) => (
-                            <option key={t.id} value={t.id}>
-                                {t.name}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        className={field}
-                        value={filters.tag ?? ''}
-                        onChange={(e) => update({ tag: e.target.value })}
-                    >
-                        <option value="">All tags</option>
-                        {tags.map((t) => (
-                            <option key={t.id} value={t.slug}>
-                                {t.name}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        className={field}
-                        value={filters.difficulty ?? ''}
-                        onChange={(e) => update({ difficulty: e.target.value })}
-                    >
-                        <option value="">Any difficulty</option>
-                        <option value="easy">Easy</option>
-                        <option value="medium">Medium</option>
-                        <option value="hard">Hard</option>
-                    </select>
-                    <select
-                        className={field}
-                        value={filters.status ?? ''}
-                        onChange={(e) => update({ status: e.target.value })}
-                    >
-                        <option value="">Any status</option>
-                        <option value="draft">Draft</option>
-                        <option value="published">Published</option>
-                    </select>
-                    <button type="submit" className={field}>
+                    />
+                    <FilterSelect
+                        value={filters.topic_id}
+                        placeholder="All topics"
+                        options={topics.map((t) => ({
+                            value: String(t.id),
+                            label: t.name,
+                        }))}
+                        onChange={(v) => update({ topic_id: v })}
+                    />
+                    <FilterSelect
+                        value={filters.tag}
+                        placeholder="All tags"
+                        options={tags.map((t) => ({
+                            value: t.slug,
+                            label: t.name,
+                        }))}
+                        onChange={(v) => update({ tag: v })}
+                    />
+                    <FilterSelect
+                        value={filters.difficulty}
+                        placeholder="Any difficulty"
+                        options={[
+                            {
+                                value: 'easy',
+                                label: 'Easy',
+                            },
+                            {
+                                value: 'medium',
+                                label: 'Medium',
+                            },
+                            {
+                                value: 'hard',
+                                label: 'Hard',
+                            },
+                        ]}
+                        onChange={(v) => update({ difficulty: v })}
+                    />
+                    <FilterSelect
+                        value={filters.status}
+                        placeholder="Any status"
+                        options={[
+                            {
+                                value: 'draft',
+                                label: 'Draft',
+                            },
+                            {
+                                value: 'published',
+                                label: 'Published',
+                            },
+                        ]}
+                        onChange={(v) => update({ status: v })}
+                    />
+                    <Button type="submit" variant="secondary">
                         Search
-                    </button>
+                    </Button>
                 </form>
 
-                <table className="w-full text-left text-sm">
-                    <thead>
-                        <tr className="border-b">
-                            <th className="py-2">Question</th>
-                            <th>Subject / topic</th>
-                            <th>Tags</th>
-                            <th>Difficulty</th>
-                            <th>Status</th>
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Question</TableHead>
+                            <TableHead>Subject / topic</TableHead>
+                            <TableHead>Tags</TableHead>
+                            <TableHead>Difficulty</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead />
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
                         {questions.data.map((question) => (
-                            <tr
-                                key={question.id}
-                                className="border-b align-top"
-                            >
-                                <td className="max-w-md py-2 pr-2">
+                            <TableRow key={question.id} className="align-top">
+                                <TableCell className="max-w-md whitespace-normal">
                                     <Link
-                                        href={`/questions/${question.id}/edit`}
+                                        href={questionRoutes.edit(question.id)}
                                         className="hover:underline"
                                     >
                                         {question.body.length > 120
                                             ? `${question.body.slice(0, 120)}...`
                                             : question.body}
                                     </Link>
-                                </td>
-                                <td>
+                                </TableCell>
+                                <TableCell>
                                     {question.topic.subject.name} /{' '}
                                     {question.topic.name}
-                                </td>
-                                <td>
-                                    {question.tags
-                                        .map((t) => t.name)
-                                        .join(', ')}
-                                </td>
-                                <td className="capitalize">
-                                    {question.difficulty}
-                                </td>
-                                <td className="capitalize">
-                                    {question.status}
-                                </td>
-                                <td className="space-x-2 text-right whitespace-nowrap">
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
+                                        {question.tags.map((tag) => (
+                                            <Badge
+                                                key={tag.id}
+                                                variant="outline"
+                                            >
+                                                {tag.name}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge
+                                        variant="outline"
+                                        className="capitalize"
+                                    >
+                                        {question.difficulty}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge
+                                        variant={
+                                            question.status === 'published'
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
+                                        className="capitalize"
+                                    >
+                                        {question.status}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="space-x-1 text-right whitespace-nowrap">
                                     {question.status === 'draft' ? (
                                         <>
-                                            <button
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
                                                 onClick={() =>
-                                                    post(
-                                                        `/questions/${question.id}/publish`,
+                                                    changeStatus(
+                                                        question,
+                                                        'publish',
                                                     )
                                                 }
                                             >
                                                 Publish
-                                            </button>
-                                            <button
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-destructive"
                                                 onClick={() => remove(question)}
                                             >
                                                 Delete
-                                            </button>
+                                            </Button>
                                         </>
                                     ) : (
-                                        <button
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
                                             onClick={() =>
-                                                post(
-                                                    `/questions/${question.id}/unpublish`,
+                                                changeStatus(
+                                                    question,
+                                                    'unpublish',
                                                 )
                                             }
                                         >
                                             Unpublish
-                                        </button>
+                                        </Button>
                                     )}
-                                </td>
-                            </tr>
+                                </TableCell>
+                            </TableRow>
                         ))}
-                    </tbody>
-                </table>
+                    </TableBody>
+                </Table>
 
                 <nav className="flex flex-wrap gap-1">
-                    {questions.links.map((link, i) => (
-                        <Link
-                            key={i}
-                            href={link.url ?? '#'}
-                            preserveScroll
-                            className={`rounded border px-3 py-1 text-sm ${
-                                link.active
-                                    ? 'bg-primary text-primary-foreground'
-                                    : ''
-                            } ${
-                                link.url ? '' : 'pointer-events-none opacity-50'
-                            } `}
-                            // Labels come from Laravel's paginator (e.g. "&laquo; Previous"), not user input.
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
+                    {questions.links.map((link, i) =>
+                        link.url ? (
+                            <Button
+                                key={i}
+                                asChild
+                                size="sm"
+                                variant={link.active ? 'default' : 'outline'}
+                            >
+                                <Link
+                                    href={link.url}
+                                    preserveScroll
+                                    // Labels come from Laravel's paginator (e.g., "&laquo; Previous"), not user input.
+                                    dangerouslySetInnerHTML={{
+                                        __html: link.label,
+                                    }}
+                                />
+                            </Button>
+                        ) : (
+                            <Button
+                                key={i}
+                                size="sm"
+                                variant="outline"
+                                disabled
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ),
+                    )}
                 </nav>
             </div>
         </>
@@ -262,7 +364,7 @@ QuestionsIndex.layout = {
     breadcrumbs: [
         {
             title: 'Question bank',
-            href: '/questions',
+            href: questionRoutes.index(),
         },
     ],
 };
