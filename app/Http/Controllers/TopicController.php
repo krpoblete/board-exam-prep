@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTopicRequest;
+use App\Http\Requests\UpdateTopicRequest;
 use App\Models\Subject;
 use App\Models\Topic;
 use Illuminate\Http\RedirectResponse;
@@ -32,7 +33,7 @@ class TopicController extends Controller
         return back();
     }
 
-    public function update(StoreTopicRequest $request, Topic $topic): RedirectResponse
+    public function update(UpdateTopicRequest $request, Topic $topic): RedirectResponse
     {
         $topic->update($request->validated());
 
