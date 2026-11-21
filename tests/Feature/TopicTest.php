@@ -6,10 +6,13 @@ use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Topic;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class TopicTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_instructor_can_create_topic(): void
     {
         $user = User::factory()->create(['role' => 'instructor']);
@@ -49,5 +52,18 @@ class TopicTest extends TestCase
         $this->actingAs($user)
             ->delete("/topics/{$topic->id}")
             ->assertForbidden();
+    }
+
+    public function test_instructor_can_rename_topic(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+        $topic = Topic::factory()->create(['name' => 'English']);
+
+        $this->actingAs($user)
+            ->put("topics/{$topic->id}", ['name' => 'English Grammar'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('topics', ['id' => $topic->id, 'name' => 'English Grammar']);
     }
 }
