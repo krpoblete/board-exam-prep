@@ -76,4 +76,9 @@ class QuestionPolicy
     {
         return false;
     }
+
+    public function import(User $user): bool
+    {
+        return $user->isStaff();
+    }
 }
