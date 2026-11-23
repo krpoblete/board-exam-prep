@@ -25,6 +25,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import importRoutes from '@/routes/questions/import';
 import questionRoutes from '@/routes/questions';
 
 interface Props {
@@ -136,6 +137,9 @@ export default function QuestionsIndex({
                     <h1 className="text-xl font-semibold">
                         Question bank ({questions.total})
                     </h1>
+                    <Button asChild variant="outline">
+                        <Link href={importRoutes.create()}>Import CSV</Link>
+                    </Button>
                     <Button asChild>
                         <Link href={questionRoutes.create()}>New question</Link>
                     </Button>

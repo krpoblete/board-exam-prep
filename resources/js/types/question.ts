@@ -72,3 +72,22 @@ export interface QuestionDetail {
     tags: string[];
     choices: ChoiceInput[];
 }
+
+export interface ImportPreviewRow {
+    row: number;
+    subject: string;
+    topic: string;
+    body: string;
+    choices: number;
+    correct: string;
+    errors: string[];
+}
+
+export interface ImportPreview {
+    file_name: string;
+    fatal: string | null;
+    total: number;
+    valid: number;
+    invalid: number;
+    rows: ImportPreviewRow[];
+}
