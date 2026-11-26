@@ -33,6 +33,10 @@ interface Props {
     filters: QuestionFilters;
     subjects: SubjectOption[];
     tags: TagOption[];
+    bulk: {
+        published: number;
+        skipped: number;
+    } | null;
 }
 
 const ALL = 'all';
@@ -76,8 +80,16 @@ export default function QuestionsIndex({
     filters,
     subjects,
     tags,
+    bulk,
 }: Props) {
     const [q, setQ] = useState(filters.q ?? '');
+    const [selected, setSelected] = useState<number[]>([]);
+
+    const pageIds = questions.data.map((question) => question.id);
+    // Ignore ids from a previous page or filter, so the count is always what's visible.
+    const selectedOnPage = selected.filter((id) => pageIds.includes(id));
+    const allSelected =
+        pageIds.length > 0 && selectedOnPage.length === pageIds.length;
 
     function apply(next: QuestionFilters) {
         const query = Object.fromEntries(
@@ -103,6 +115,16 @@ export default function QuestionsIndex({
           [])
         : subjects.flatMap((s) => s.topics);
 
+    function toggle(id: number) {
+        setSelected((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+        );
+    }
+
+    function toggleAll() {
+        setSelected(allSelected ? [] : pageIds);
+    }
+
     function changeStatus(
         question: QuestionRow,
         action: 'publish' | 'unpublish',
@@ -126,6 +148,38 @@ export default function QuestionsIndex({
             router.delete(questionRoutes.destroy(question.id).url, {
                 preserveScroll: true,
             });
+        }
+    }
+
+    function publishSelected() {
+        router.post(
+            questionRoutes.bulkPublish().url,
+            { ids: selectedOnPage },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelected([]);
+                    router.flushAll();
+                },
+            },
+        );
+    }
+
+    function publishAllMatching() {
+        const message = `Publish all ${questions.total} draft questions matching these filters? Questions without two choices and one correct answer are skipped.`;
+
+        if (confirm(message)) {
+            router.post(
+                questionRoutes.bulkPublish().url,
+                { all_matching: true, ...filters },
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        setSelected([]);
+                        router.flushAll();
+                    },
+                },
+            );
         }
     }
 
@@ -226,9 +280,49 @@ export default function QuestionsIndex({
                     </Button>
                 </form>
 
+                {bulk && (
+                    <div className="rounded-md border p-3 text-sm">
+                        Published {bulk.published} question(s).
+                        {bulk.skipped > 0 &&
+                            ` Skipped ${bulk.skipped} without two choices and exactly one correct answer.`}
+                    </div>
+                )}
+
+                {(selectedOnPage.length > 0 ||
+                    (filters.status === 'draft' && questions.total > 0)) && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
+                        {selectedOnPage.length > 0 && (
+                            <>
+                                <span>{selectedOnPage.length} selected</span>
+                                <Button size="sm" onClick={publishSelected}>
+                                    Publish selected
+                                </Button>
+                            </>
+                        )}
+                        {filters.status === 'draft' && questions.total > 0 && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={publishAllMatching}
+                            >
+                                Publish all {questions.total} drafts
+                            </Button>
+                        )}
+                    </div>
+                )}
+
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-8">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select all on this page"
+                                    className="size-4 accent-primary"
+                                    checked={allSelected}
+                                    onChange={toggleAll}
+                                />
+                            </TableHead>
                             <TableHead>Question</TableHead>
                             <TableHead>Subject / topic</TableHead>
                             <TableHead>Tags</TableHead>
@@ -240,6 +334,15 @@ export default function QuestionsIndex({
                     <TableBody>
                         {questions.data.map((question) => (
                             <TableRow key={question.id} className="align-top">
+                                <TableCell>
+                                    <input
+                                        type="checkbox"
+                                        aria-label={`Select question ${question.id}`}
+                                        className="size-4 accent-primary"
+                                        checked={selected.includes(question.id)}
+                                        onChange={() => toggle(question.id)}
+                                    />
+                                </TableCell>
                                 <TableCell className="max-w-md whitespace-normal">
                                     <Link
                                         href={questionRoutes.edit(question.id)}
