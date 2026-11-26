@@ -12,7 +12,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::resource('questions', QuestionController::class)
-    ->except(['show']);
+    ->except(['show'])
+    ->whereNumber('question');
 Route::post('questions/{question}/publish', [QuestionController::class, 'publish'])->name('questions.publish');
 Route::post('questions/{question}/unpublish', [QuestionController::class, 'unpublish'])->name('questions.unpublish');
 Route::post('questions/bulk-publish', [QuestionController::class, 'bulkPublish'])->name('questions.bulkPublish');
