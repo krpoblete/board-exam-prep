@@ -32,6 +32,7 @@ class QuestionController extends Controller
             ->with(['topic.subject', 'tags'])
             ->withCount('choices')
             ->latest()
+            ->latest('id')
             ->paginate(20)
             ->withQueryString();
 
