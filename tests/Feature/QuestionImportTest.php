@@ -112,4 +112,17 @@ class QuestionImportTest extends TestCase
 
         $this->actingAs($user)->get('/questions/import')->assertForbidden();
     }
+
+    public function test_discard_removes_the_staged_file(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+
+        $this->actingAs($user)
+            ->withSession($this->staged(self::VALID_ROW))
+            ->delete('/questions/import')
+            ->assertRedirect('/questions/import')
+            ->assertSessionMissing('question_import');
+
+        $this->assertFalse(Storage::disk('local')->exists('import/test.csv'));
+    }
 }
