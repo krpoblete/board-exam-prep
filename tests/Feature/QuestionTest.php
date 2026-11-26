@@ -126,4 +126,78 @@ class QuestionTest extends TestCase
                 ->where('question.locked', false)
                 ->has('question.choices', 1));
     }
+
+    private function questionWithChoices(array $attrs = []): Question
+    {
+        $question = Question::factory()->create([
+            'status' => 'draft',
+            ...$attrs,
+        ]);
+        $question->choices()->createMany([
+            [
+                'body' => 'A',
+                'is_correct' => true,
+            ],
+            [
+                'body' => 'B',
+                'is_correct' => false,
+            ],
+        ]);
+
+        return $question;
+    }
+
+    public function test_bulk_publish_skips_questions_without_valid_choices(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+        $ready = $this->questionWithChoices();
+        $broken = Question::factory()->create(['status' => 'draft']);
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-publish', ['ids' => [
+                $ready->id,
+                $broken->id,
+            ]])
+            ->assertRedirect()
+            ->assertSessionHas('bulk', [
+                'published' => 1,
+                'skipped' => 1,
+            ]);
+
+        $this->assertSame('published', $ready->fresh()->status->value);
+        $this->assertSame('draft', $broken->fresh()->status->value);
+    }
+
+    public function test_publish_all_matching_only_touches_drafts_in_the_filter(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+        $topicA = Topic::factory()->create();
+        $topicB = Topic::factory()->create();
+        $inFilter = $this->questionWithChoices(['topic_id' => $topicA->id]);
+        $otherTopic = $this->questionWithChoices(['topic_id' => $topicB->id]);
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-publish', [
+                'all_matching' => true,
+                'status' => 'draft',
+                'topic_id' => $topicA->id,
+            ])
+            ->assertSessionHas('bulk', [
+                'published' => 1,
+                'skipped' => 0,
+            ]);
+
+        $this->assertSame('published', $inFilter->fresh()->status->value);
+        $this->assertSame('draft', $otherTopic->fresh()->status->value);
+    }
+
+    public function test_examinee_cannot_bulk_publish(): void
+    {
+        $user = User::factory()->create(['role' => 'examinee']);
+        $question = $this->questionWithChoices();
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-publish', ['ids' => [$question->id]])
+            ->assertForbidden();
+    }
 }
