@@ -15,6 +15,7 @@ Route::resource('questions', QuestionController::class)
     ->except(['show']);
 Route::post('questions/{question}/publish', [QuestionController::class, 'publish'])->name('questions.publish');
 Route::post('questions/{question}/unpublish', [QuestionController::class, 'unpublish'])->name('questions.unpublish');
+Route::post('questions/bulk-publish', [QuestionController::class, 'bulkPublish'])->name('questions.bulkPublish');
 
 Route::prefix('questions/import')->name('questions.import.')->group(function () {
     Route::get('/', [QuestionImportController::class, 'create'])->name('create');

@@ -10,8 +10,10 @@ use App\Models\Choice;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\Tag;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -26,15 +28,9 @@ class QuestionController extends Controller
     {
         Gate::authorize('viewAny', Question::class);
 
-        $questions = Question::query()
+        $questions = $this->filtered($request)
             ->with(['topic.subject', 'tags'])
             ->withCount('choices')
-            ->when($request->string('q')->toString(), fn ($q, $term) => $q->where('body', 'ilike', "%{$term}%"))
-            ->when($request->integer('topic_id'), fn ($q, $id) => $q->where('topic_id', $id))
-            ->when($request->integer('subject_id'), fn ($q, $id) => $q->whereHas('topic', fn ($t) => $t->where('subject_id', $id)))
-            ->when($request->string('tag')->toString(), fn ($q, $slug) => $q->whereHas('tags', fn ($t) => $t->where('slug', $slug)))
-            ->when($request->string('status')->toString(), fn ($q, $s) => $q->where('status', $s))
-            ->when($request->string('difficulty')->toString(), fn ($q, $d) => $q->where('difficulty', $d))
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -55,6 +51,7 @@ class QuestionController extends Controller
                 'name',
                 'slug',
             ]),
+            'bulk' => session('bulk'),
         ]);
     }
 
@@ -171,9 +168,7 @@ class QuestionController extends Controller
     {
         Gate::authorize('publish', $question);
 
-        $choices = $question->choices()->get();
-
-        if ($choices->count() < 2 || $choices->where('is_correct', true)->count() !== 1) {
+        if (! $question->hasValidChoices()) {
             throw ValidationException::withMessages([
                 'status' => 'A question needs at least two choices and exactly one correct choice to be published.',
             ]);
@@ -190,5 +185,71 @@ class QuestionController extends Controller
         $question->update(['status' => QuestionStatus::Draft]);
 
         return back();
+    }
+
+    /** @return Builder<Question> */
+    private function filtered(Request $request): Builder
+    {
+        return Question::query()
+            ->when($request->string('q')->toString(), fn ($q, $term) => $q->where('body', 'ilike', "%{$term}%"))
+            ->when($request->integer('topic_id'), fn ($q, $id) => $q->where('topic_id', $id))
+            ->when($request->integer('subject_id'), fn ($q, $id) => $q->whereHas('topic', fn ($t) => $t->where('subject_id', $id)))
+            ->when($request->string('tag')->toString(), fn ($q, $slug) => $q->whereHas('tags', fn ($t) => $t->where('slug', $slug)))
+            ->when($request->string('status')->toString(), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->string('difficulty')->toString(), fn ($q, $d) => $q->where('difficulty', $d));
+    }
+
+    public function bulkPublish(Request $request): RedirectResponse
+    {
+        Gate::authorize('viewAny', Question::class);
+
+        $published = 0;
+        $skipped = 0;
+
+        $publish = function (Collection $questions) use (&$published, &$skipped): void {
+            foreach ($questions as $question) {
+                Gate::authorize('publish', $question);
+
+                if ($question->isPublished()) {
+                    continue;
+                }
+
+                if (! $question->hasValidChoices()) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $question->update(['status' => QuestionStatus::Published]);
+                $published++;
+            }
+        };
+
+        if ($request->boolean('all_matching')) {
+            $this->filtered($request)
+                ->where('status', QuestionStatus::Draft->value)
+                ->with('choices')
+                ->chunkById(200, $publish);
+        } else {
+            $data = $request->validate([
+                'ids' => [
+                    'required',
+                    'array',
+                    'min:1',
+                    'max:100',
+                ],
+                'ids.*' => [
+                    'integer',
+                    'exists:questions,id',
+                ],
+            ]);
+
+            $publish(Question::with('choices')->whereIn('id', $data['ids'])->get());
+        }
+
+        return back()->with('bulk', [
+            'published' => $published,
+            'skipped' => $skipped,
+        ]);
     }
 }

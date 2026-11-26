@@ -88,4 +88,10 @@ class Question extends Model
     {
         return $this->belongsToMany(Tag::class);
     }
+
+    public function hasValidChoices(): bool
+    {
+        return $this->choices->count() >= 2
+            && $this->choices->where('is_correct', true)->count() === 1;
+    }
 }
