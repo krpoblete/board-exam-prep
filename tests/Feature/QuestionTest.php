@@ -202,4 +202,65 @@ class QuestionTest extends TestCase
             ->post('/questions/bulk-publish', ['ids' => [$question->id]])
             ->assertForbidden();
     }
+
+    public function test_bulk_unpublish_returns_published_questions_to_draft(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+        $published = $this->questionWithChoices(['status' => 'published']);
+        $draft = $this->questionWithChoices();
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-unpublish', ['ids' => [
+                $published->id,
+                $draft->id,
+            ]])
+            ->assertSessionHas('bulk', [
+                'action' => 'unpublished',
+                'count' => 1,
+                'skipped' => 0,
+            ]);
+
+        $this->assertSame('draft', $published->fresh()->status->value);
+        $this->assertSame('draft', $draft->fresh()->status->value);
+    }
+
+    public function test_unpublish_all_matching_only_touches_published_in_the_filter(): void
+    {
+        $user = User::factory()->create(['role' => 'instructor']);
+        $topicA = Topic::factory()->create();
+        $topicB = Topic::factory()->create();
+        $inFilter = $this->questionWithChoices([
+            'topic_id' => $topicA->id,
+            'status' => 'published',
+        ]);
+        $otherTopic = $this->questionWithChoices([
+            'topic_id' => $topicB->id,
+            'status' => 'published',
+        ]);
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-unpublish', [
+                'all_matching' => true,
+                'status' => 'published',
+                'topic_id' => $topicA->id,
+            ])
+            ->assertSessionHas('bulk', [
+                'action' => 'unpublished',
+                'count' => 1,
+                'skipped' => 0,
+            ]);
+
+        $this->assertSame('draft', $inFilter->fresh()->status->value);
+        $this->assertSame('published', $otherTopic->fresh()->status->value);
+    }
+
+    public function test_examinee_cannot_bulk_unpublish(): void
+    {
+        $user = User::factory()->create(['role' => 'examinee']);
+        $question = $this->questionWithChoices(['status' => 'published']);
+
+        $this->actingAs($user)
+            ->post('/questions/bulk-unpublish', ['ids' => [$question->id]])
+            ->assertForbidden();
+    }
 }
