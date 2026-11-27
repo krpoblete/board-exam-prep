@@ -34,7 +34,8 @@ interface Props {
     subjects: SubjectOption[];
     tags: TagOption[];
     bulk: {
-        published: number;
+        action: 'published' | 'unpublished';
+        count: number;
         skipped: number;
     } | null;
 }
@@ -151,17 +152,27 @@ export default function QuestionsIndex({
         }
     }
 
+    const bulkOptions = {
+        preserveScroll: true,
+        onSuccess: () => {
+            setSelected([]);
+            router.flushAll();
+        },
+    };
+
     function publishSelected() {
         router.post(
             questionRoutes.bulkPublish().url,
             { ids: selectedOnPage },
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setSelected([]);
-                    router.flushAll();
-                },
-            },
+            bulkOptions,
+        );
+    }
+
+    function unpublishSelected() {
+        router.post(
+            questionRoutes.bulkUnpublish().url,
+            { ids: selectedOnPage },
+            bulkOptions,
         );
     }
 
@@ -172,13 +183,19 @@ export default function QuestionsIndex({
             router.post(
                 questionRoutes.bulkPublish().url,
                 { all_matching: true, ...filters },
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        setSelected([]);
-                        router.flushAll();
-                    },
-                },
+                bulkOptions,
+            );
+        }
+    }
+
+    function unpublishAllMatching() {
+        const message = `Unpublish all ${questions.total} published questions matching these filters? They go back to draft.`;
+
+        if (confirm(message)) {
+            router.post(
+                questionRoutes.bulkUnpublish().url,
+                { all_matching: true, ...filters },
+                bulkOptions,
             );
         }
     }
@@ -282,20 +299,32 @@ export default function QuestionsIndex({
 
                 {bulk && (
                     <div className="rounded-md border p-3 text-sm">
-                        Published {bulk.published} question(s).
+                        {bulk.action === 'published'
+                            ? 'Published'
+                            : 'Unpublished'}{' '}
+                        {bulk.count} question(s).
                         {bulk.skipped > 0 &&
                             ` Skipped ${bulk.skipped} without two choices and exactly one correct answer.`}
                     </div>
                 )}
 
                 {(selectedOnPage.length > 0 ||
-                    (filters.status === 'draft' && questions.total > 0)) && (
+                    ((filters.status === 'draft' ||
+                        filters.status === 'published') &&
+                        questions.total > 0)) && (
                     <div className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
                         {selectedOnPage.length > 0 && (
                             <>
                                 <span>{selectedOnPage.length} selected</span>
                                 <Button size="sm" onClick={publishSelected}>
                                     Publish selected
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={unpublishSelected}
+                                >
+                                    Unpublish selected
                                 </Button>
                             </>
                         )}
@@ -308,6 +337,16 @@ export default function QuestionsIndex({
                                 Publish all {questions.total} drafts
                             </Button>
                         )}
+                        {filters.status === 'published' &&
+                            questions.total > 0 && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={unpublishAllMatching}
+                                >
+                                    Unpublish all {questions.total} published
+                                </Button>
+                            )}
                     </div>
                 )}
 
