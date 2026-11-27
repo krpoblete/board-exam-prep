@@ -202,35 +202,53 @@ class QuestionController extends Controller
 
     public function bulkPublish(Request $request): RedirectResponse
     {
+        return $this->bulkChange($request, QuestionStatus::Published);
+    }
+
+    public function bulkUnpublish(Request $request): RedirectResponse
+    {
+        return $this->bulkChange($request, QuestionStatus::Draft);
+    }
+
+    public function bulkChange(Request $request, QuestionStatus $to): RedirectResponse
+    {
         Gate::authorize('viewAny', Question::class);
 
-        $published = 0;
+        $publishing = $to === QuestionStatus::Published;
+        $ability = $publishing
+            ? 'publish'
+            : 'unpublish';
+        $from = $publishing
+            ? QuestionStatus::Draft
+            : QuestionStatus::Published;
+
+        $changed = 0;
         $skipped = 0;
 
-        $publish = function (Collection $questions) use (&$published, &$skipped): void {
+        $apply = function (Collection $questions) use (&$changed, &$skipped, $to, $publishing, $ability): void {
             foreach ($questions as $question) {
-                Gate::authorize('publish', $question);
+                Gate::authorize($ability, $question);
 
-                if ($question->isPublished()) {
+                if ($question->status === $to) {
                     continue;
                 }
 
-                if (! $question->hasValidChoices()) {
+                if ($publishing && ! $question->hasValidChoices()) {
                     $skipped++;
 
                     continue;
                 }
 
-                $question->update(['status' => QuestionStatus::Published]);
-                $published++;
+                $question->update(['status' => $to]);
+                $changed++;
             }
         };
 
         if ($request->boolean('all_matching')) {
             $this->filtered($request)
-                ->where('status', QuestionStatus::Draft->value)
+                ->where('status', $from->value)
                 ->with('choices')
-                ->chunkById(200, $publish);
+                ->chunkById(200, $apply);
         } else {
             $data = $request->validate([
                 'ids' => [
@@ -245,11 +263,14 @@ class QuestionController extends Controller
                 ],
             ]);
 
-            $publish(Question::with('choices')->whereIn('id', $data['ids'])->get());
+            $apply(Question::with('choices')->whereIn('id', $data['ids'])->get());
         }
 
         return back()->with('bulk', [
-            'published' => $published,
+            'action' => $publishing
+                ? 'published'
+                : 'unpublished',
+            'count' => $changed,
             'skipped' => $skipped,
         ]);
     }

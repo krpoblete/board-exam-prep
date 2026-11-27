@@ -160,7 +160,8 @@ class QuestionTest extends TestCase
             ]])
             ->assertRedirect()
             ->assertSessionHas('bulk', [
-                'published' => 1,
+                'action' => 'published',
+                'count' => 1,
                 'skipped' => 1,
             ]);
 
@@ -183,7 +184,8 @@ class QuestionTest extends TestCase
                 'topic_id' => $topicA->id,
             ])
             ->assertSessionHas('bulk', [
-                'published' => 1,
+                'action' => 'published',
+                'count' => 1,
                 'skipped' => 0,
             ]);
 
