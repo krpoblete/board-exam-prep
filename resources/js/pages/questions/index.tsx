@@ -91,6 +91,15 @@ export default function QuestionsIndex({
     const selectedOnPage = selected.filter((id) => pageIds.includes(id));
     const allSelected =
         pageIds.length > 0 && selectedOnPage.length === pageIds.length;
+    const selectedRows = questions.data.filter((question) =>
+        selectedOnPage.includes(question.id),
+    );
+    const draftIds = selectedRows
+        .filter((question) => question.status === 'draft')
+        .map((question) => question.id);
+    const publishedIds = selectedRows
+        .filter((question) => question.status === 'published')
+        .map((question) => question.id);
 
     function apply(next: QuestionFilters) {
         const query = Object.fromEntries(
@@ -163,7 +172,7 @@ export default function QuestionsIndex({
     function publishSelected() {
         router.post(
             questionRoutes.bulkPublish().url,
-            { ids: selectedOnPage },
+            { ids: draftIds },
             bulkOptions,
         );
     }
@@ -171,7 +180,7 @@ export default function QuestionsIndex({
     function unpublishSelected() {
         router.post(
             questionRoutes.bulkUnpublish().url,
-            { ids: selectedOnPage },
+            { ids: publishedIds },
             bulkOptions,
         );
     }
@@ -316,15 +325,20 @@ export default function QuestionsIndex({
                         {selectedOnPage.length > 0 && (
                             <>
                                 <span>{selectedOnPage.length} selected</span>
-                                <Button size="sm" onClick={publishSelected}>
-                                    Publish selected
+                                <Button
+                                    size="sm"
+                                    disabled={draftIds.length === 0}
+                                    onClick={publishSelected}
+                                >
+                                    Publish selected ({draftIds.length})
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"
+                                    disabled={publishedIds.length === 0}
                                     onClick={unpublishSelected}
                                 >
-                                    Unpublish selected
+                                    Unpublish selected ({publishedIds.length})
                                 </Button>
                             </>
                         )}
